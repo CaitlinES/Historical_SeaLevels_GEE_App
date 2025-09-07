@@ -24,10 +24,5 @@ Below is a small GIF of the Murujuga region, showing sea-level changes over time
 ## Future Improvements
 - Add text annotation with the year to generated GIFs.
 
-## Citation
-If you use this app or its outputs, please cite the relevant datasets and tools:
-- GEBCO Bathymetry/Elevation Dataset
-- Patrick Morrison's QGIS Sea-Level Tool Plugin
-
 ## Contact
-For questions or feedback, please contact [Your Name] or open an issue in this repository.
+For questions or feedback, please contact me or open an issue in this repository.
