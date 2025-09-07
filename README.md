@@ -18,6 +18,5 @@ Also ~ cool maps ~.
 ## Example
 Below is a small GIF of the Murujuga region, showing sea-level changes over time:
 
-![Murujuga Sea Level Change](D:/Academic_Tools_Creations/Sea_Level_App/Historical_SeaLevels_GEE_App.gif)
-
+![Sea Level Change](1692608751848.gif)
 
