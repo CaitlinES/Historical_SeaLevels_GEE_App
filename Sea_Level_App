@@ -1,0 +1,868 @@
+ar gebco_grid = ee.ImageCollection("projects/sat-io/open-datasets/gebco/gebco_grid"),
+    geometry = /* color: #23cba7 */ee.Geometry.MultiPoint(),
+    table = ee.FeatureCollection("projects/white-berm-358813/assets/predictions"),
+    geometry1 = 
+    /* color: #0b4a8b */
+    /* displayProperties: [
+      {
+        "type": "rectangle"
+      }
+    ] */
+    ee.Geometry.Polygon(
+        [[[114.7600822244376, -31.04076713922099],
+          [114.7600822244376, -34.05909798307843],
+          [116.6717033181876, -34.05909798307843],
+          [116.6717033181876, -31.04076713922099]]], null, false);
+
+
+//Select box dropdown for colour palette options, and on change update the visparams
+var visparams = {"min":0,"max":18,"palette":["#000000","#000064","#000064","#2a4996","#2d4a90","#4789d0","#96c3de","#f4f3dd","#f4f3dd","#6a8e6a","#599759","#4b8e4b","#428742","#4d854f","#3d8d49","#74784d","#dcdcdc","#ffffff"]};
+//var Blue_Terrain_Classic = {"min":0,"max":18,"palette":["#00008B" ,"#222B9D" ,"#4556AF" ,"#6781C1" ,"#8AACD3" ,"#ADD8E6" ,"#00A600" ,"#24B300" ,"#4CBF00" ,"#7ACC00" ,"#ADD900" ,"#E6E600" ,"#E8C727" ,"#EAB64E" ,"#ECB176" ,"#EEB99F" ,"#F0CFC8" ,"#F2F2F2"]};
+
+//Update visparams
+//Downlaod tool
+//var blend = require('users/jja/public:blend.js');
+
+Map.setCenter(92, -17,3);
+
+//Global shoreline layers
+var mainlands = ee.FeatureCollection('projects/sat-io/open-datasets/shoreline/mainlands');
+var big_islands = ee.FeatureCollection('projects/sat-io/open-datasets/shoreline/big_islands');
+var small_islands = ee.FeatureCollection('projects/sat-io/open-datasets/shoreline/small_islands');
+
+          
+//Load imports into top section (done, converted)
+var elev = gebco_grid.median().subtract(1.190912069)
+
+// Define a function to reclassify the elevation to map it neatly
+function updateElevClass(image){
+  //print('updating AOI')
+  var elev_class_remap = ee.Image(0)
+    .where(image.gt(-3000.2000000000007).and(image.lte(-1000.1999999999997)),1)
+    .where(image.gt(-1000.1999999999997).and(image.lte(-500.1999999999998)),2)
+    .where(image.gt(-500.1999999999998).and(image.lte(-51.361999999999945)),3)
+    .where(image.gt(-51.361999999999945).and(image.lte(-30.199999999999992)),4)
+    .where(image.gt(-30.199999999999992).and(image.lte(-5.200000000000002)),5)
+    .where(image.gt(-5.200000000000002).and(image.lte(-0.2)),6)
+    .where(image.gt(-0.2).and(image.lte(0.8)),7)
+    .where(image.gt(0.8).and(image.lte(1.8)),8) 
+    .where(image.gt(1.8).and(image.lte(2.8)),9)
+    .where(image.gt(2.8).and(image.lte(99.80000000000001)),10) 
+    .where(image.gt(99.80000000000001).and(image.lte(199.79999999999995)),11) 
+    .where(image.gt(199.79999999999995).and(image.lte(199.79999999999995)),12) 
+    .where(image.gt(199.79999999999995).and(image.lte(299.7999999999999)),13)
+    .where(image.gt(299.7999999999999).and(image.lte(349.7999999999999)),14) 
+    .where(image.gt(349.7999999999999).and(image.lte(699.8000000000002)),15) 
+    .where(image.gt(699.8000000000002).and(image.lte(1499.8000000000004)),16) 
+    .where(image.gt(1499.8000000000004).and(image.lte(1999.8000000000004)),17) 
+    .where(image.gt(1999.8000000000004).and(image.lte(9000)),18); 
+    return(elev_class_remap);
+}
+
+var elev_class = updateElevClass(elev);
+
+
+////Create the layers for every year first so that the app can function fine
+//Define the raster
+
+var main_raster = gebco_grid.median();
+  
+//table is already defined
+//Create function to make the images
+  var subtractValue = function(feature) {
+    var value = feature.getNumber("sea_level"); // column name that has the value for subtraction from OG raster
+    var ageName = feature.get("age_name");   // the age that the selected sea level is for
+    var age = feature.get("age"); 
+    var subtractedImage = main_raster.subtract(value);
+    //Remap so can display properly
+    var sub_image_remap = updateElevClass(subtractedImage);
+    //var image = ee.Image(subtractedImageCollection1.get(index));
+
+
+    //var annotatedImage = sub_image_remap.visualize(visparams)
+    // Function to add labels to each image
+    //var labeledImage = annotatedImage.addBands(labelsImage, ['label']);
+    // Set age_name as a property on the image
+    var setage = sub_image_remap.set("age_name", ageName);
+    return setage.set('age', age);
+
+    //return annotatedImage.set("originalFeature", feature);
+  };      
+
+  //var subtractedImageCollection = ee.ImageCollection()
+var subtractedImageCollection = table.map(subtractValue);
+var subtractedImageCollection1 = ee.ImageCollection(subtractedImageCollection); ///this holds the maps for all years
+
+
+
+
+//Create drop down cause slider not working and date slider is time period
+
+//Define the selection for years
+var dateSlider = ui.Select({
+        items: ['0 Years Ago', '100 Years Ago', '200 Years Ago', '300 Years Ago', '400 Years Ago', '500 Years Ago', '600 Years Ago', '700 Years Ago',
+'800 Years Ago', '900 Years Ago', '1000 Years Ago', '1100 Years Ago', '1200 Years Ago', '1300 Years Ago', '1400 Years Ago', '1500 Years Ago',
+'1600 Years Ago', '1700 Years Ago', '1800 Years Ago', '1900 Years Ago', '2000 Years Ago', '2100 Years Ago', '2200 Years Ago', '2300 Years Ago',
+'2400 Years Ago', '2500 Years Ago', '2600 Years Ago', '2700 Years Ago', '2800 Years Ago', '2900 Years Ago', '3000 Years Ago', '3100 Years Ago',
+'3200 Years Ago', '3300 Years Ago', '3400 Years Ago', '3500 Years Ago', '3600 Years Ago', '3700 Years Ago', '3800 Years Ago', '3900 Years Ago',
+'4000 Years Ago', '4100 Years Ago', '4200 Years Ago', '4300 Years Ago', '4400 Years Ago', '4500 Years Ago', '4600 Years Ago', '4700 Years Ago',
+'4800 Years Ago', '4900 Years Ago', '5000 Years Ago', '5100 Years Ago', '5200 Years Ago', '5300 Years Ago', '5400 Years Ago', '5500 Years Ago',
+'5600 Years Ago', '5700 Years Ago', '5800 Years Ago', '5900 Years Ago', '6000 Years Ago', '6100 Years Ago', '6200 Years Ago', '6300 Years Ago',
+'6400 Years Ago', '6500 Years Ago', '6600 Years Ago', '6700 Years Ago', '6800 Years Ago', '6900 Years Ago', '7000 Years Ago', '7100 Years Ago',
+'7200 Years Ago', '7300 Years Ago', '7400 Years Ago', '7500 Years Ago', '7600 Years Ago', '7700 Years Ago', '7800 Years Ago', '7900 Years Ago', 
+'8000 Years Ago', '8100 Years Ago', '8200 Years Ago', '8300 Years Ago', '8400 Years Ago', '8500 Years Ago', '8600 Years Ago', '8700 Years Ago', 
+'8800 Years Ago', '8900 Years Ago', '9000 Years Ago', '9100 Years Ago', '9200 Years Ago', '9300 Years Ago', '9400 Years Ago', '9500 Years Ago', '9600 Years Ago', '9700 Years Ago', '9800 Years Ago', '9900 Years Ago', '10000 Years Ago', '10100 Years Ago', '10200 Years Ago', '10300 Years Ago', '10400 Years Ago', '10500 Years Ago', '10600 Years Ago', '10700 Years Ago', '10800 Years Ago', '10900 Years Ago', '11000 Years Ago', '11100 Years Ago', '11200 Years Ago', '11300 Years Ago', '11400 Years Ago', '11500 Years Ago',
+'11600 Years Ago', '11700 Years Ago', '11800 Years Ago', '11900 Years Ago', '12000 Years Ago', '12100 Years Ago', '12200 Years Ago', '12300 Years Ago', '12400 Years Ago', '12500 Years Ago', '12600 Years Ago', '12700 Years Ago', '12800 Years Ago', '12900 Years Ago', '13000 Years Ago', '13100 Years Ago', '13200 Years Ago', '13300 Years Ago', '13400 Years Ago', '13500 Years Ago', '13600 Years Ago', '13700 Years Ago', '13800 Years Ago', '13900 Years Ago', '14000 Years Ago', '14100 Years Ago', '14200 Years Ago', '14300 Years Ago', '14400 Years Ago', '14500 Years Ago', '14600 Years Ago', '14700 Years Ago', '14800 Years Ago', '14900 Years Ago', '15000 Years Ago', '15100 Years Ago', '15200 Years Ago', '15300 Years Ago', '15400 Years Ago', '15500 Years Ago', '15600 Years Ago', '15700 Years Ago', '15800 Years Ago', '15900 Years Ago', '16000 Years Ago', '16100 Years Ago', '16200 Years Ago', '16300 Years Ago', '16400 Years Ago', '16500 Years Ago', '16600 Years Ago', '16700 Years Ago', '16800 Years Ago', '16900 Years Ago', '17000 Years Ago', '17100 Years Ago', '17200 Years Ago', '17300 Years Ago', '17400 Years Ago', '17500 Years Ago', '17600 Years Ago', '17700 Years Ago', '17800 Years Ago', '17900 Years Ago', '18000 Years Ago', '18100 Years Ago', '18200 Years Ago', '18300 Years Ago', '18400 Years Ago', '18500 Years Ago', '18600 Years Ago', '18700 Years Ago', '18800 Years Ago', '18900 Years Ago', '19000 Years Ago', '19100 Years Ago', '19200 Years Ago', '19300 Years Ago', '19400 Years Ago', '19500 Years Ago', '19600 Years Ago', '19700 Years Ago', '19800 Years Ago', '19900 Years Ago', '20000 Years Ago', '20100 Years Ago', '20200 Years Ago', '20300 Years Ago', '20400 Years Ago', '20500 Years Ago', '20600 Years Ago', '20700 Years Ago', '20800 Years Ago', '20900 Years Ago', '21000 Years Ago', '21100 Years Ago', '21200 Years Ago', '21300 Years Ago', '21400 Years Ago', '21500 Years Ago', '21600 Years Ago', '21700 Years Ago', '21800 Years Ago', '21900 Years Ago', '22000 Years Ago', '22100 Years Ago', '22200 Years Ago', '22300 Years Ago',
+'22400 Years Ago', '22500 Years Ago', '22600 Years Ago', '22700 Years Ago', '22800 Years Ago', '22900 Years Ago', '23000 Years Ago', '23100 Years Ago', '23200 Years Ago', '23300 Years Ago', '23400 Years Ago', '23500 Years Ago', '23600 Years Ago', '23700 Years Ago', '23800 Years Ago', '23900 Years Ago', '24000 Years Ago',
+'24100 Years Ago', '24200 Years Ago', '24300 Years Ago', '24400 Years Ago', '24500 Years Ago', '24600 Years Ago', '24700 Years Ago', '24800 Years Ago', '24900 Years Ago', '25000 Years Ago', '25100 Years Ago', '25200 Years Ago', 
+'25300 Years Ago', '25400 Years Ago', '25500 Years Ago', '25600 Years Ago', '25700 Years Ago', '25800 Years Ago', '25900 Years Ago', '26000 Years Ago', '26100 Years Ago', '26200 Years Ago', '26300 Years Ago', '26400 Years Ago', '26500 Years Ago', '26600 Years Ago', '26700 Years Ago', '26800 Years Ago', '26900 Years Ago', '27000 Years Ago', '27100 Years Ago', '27200 Years Ago', '27300 Years Ago', '27400 Years Ago', '27500 Years Ago', '27600 Years Ago', '27700 Years Ago', '27800 Years Ago', '27900 Years Ago', '28000 Years Ago', '28100 Years Ago', '28200 Years Ago', '28300 Years Ago', '28400 Years Ago', '28500 Years Ago', '28600 Years Ago', '28700 Years Ago', '28800 Years Ago',
+'28900 Years Ago', '29000 Years Ago', '29100 Years Ago', '29200 Years Ago', '29300 Years Ago', '29400 Years Ago', '29500 Years Ago', '29600 Years Ago', '29700 Years Ago', '29800 Years Ago', '29900 Years Ago', '30000 Years Ago', '30100 Years Ago', '30200 Years Ago', '30300 Years Ago', '30400 Years Ago', '30500 Years Ago', '30600 Years Ago', '30700 Years Ago', '30800 Years Ago', '30900 Years Ago', '31000 Years Ago', '31100 Years Ago', '31200 Years Ago', '31300 Years Ago', '31400 Years Ago', '31500 Years Ago', '31600 Years Ago', '31700 Years Ago', '31800 Years Ago', '31900 Years Ago', '32000 Years Ago', '32100 Years Ago', '32200 Years Ago', '32300 Years Ago', '32400 Years Ago', '32500 Years Ago', '32600 Years Ago', '32700 Years Ago', '32800 Years Ago', '32900 Years Ago', '33000 Years Ago', '33100 Years Ago', '33200 Years Ago', '33300 Years Ago', '33400 Years Ago', '33500 Years Ago', '33600 Years Ago', '33700 Years Ago', '33800 Years Ago', '33900 Years Ago', '34000 Years Ago', '34100 Years Ago', '34200 Years Ago', '34300 Years Ago', '34400 Years Ago', '34500 Years Ago', '34600 Years Ago', '34700 Years Ago', '34800 Years Ago', '34900 Years Ago', '35000 Years Ago', '35100 Years Ago', '35200 Years Ago', '35300 Years Ago', '35400 Years Ago', '35500 Years Ago', '35600 Years Ago', '35700 Years Ago', '35800 Years Ago', '35900 Years Ago', '36000 Years Ago', '36100 Years Ago', '36200 Years Ago', '36300 Years Ago', '36400 Years Ago', '36500 Years Ago', '36600 Years Ago', '36700 Years Ago', '36800 Years Ago', '36900 Years Ago', '37000 Years Ago', '37100 Years Ago', '37200 Years Ago', '37300 Years Ago', '37400 Years Ago', '37500 Years Ago', '37600 Years Ago', '37700 Years Ago', '37800 Years Ago', '37900 Years Ago', '38000 Years Ago', '38100 Years Ago', '38200 Years Ago', '38300 Years Ago', '38400 Years Ago', '38500 Years Ago', '38600 Years Ago', '38700 Years Ago', '38800 Years Ago', '38900 Years Ago', '39000 Years Ago', '39100 Years Ago', '39200 Years Ago', '39300 Years Ago', '39400 Years Ago', '39500 Years Ago', '39600 Years Ago', '39700 Years Ago', '39800 Years Ago', '39900 Years Ago', '40000 Years Ago', '40100 Years Ago', '40200 Years Ago', '40300 Years Ago', '40400 Years Ago', '40500 Years Ago', '40600 Years Ago', '40700 Years Ago', '40800 Years Ago', '40900 Years Ago', '41000 Years Ago', '41100 Years Ago', '41200 Years Ago', '41300 Years Ago', '41400 Years Ago', '41500 Years Ago', '41600 Years Ago', '41700 Years Ago', '41800 Years Ago', '41900 Years Ago', '42000 Years Ago', '42100 Years Ago', '42200 Years Ago', '42300 Years Ago', '42400 Years Ago', '42500 Years Ago', '42600 Years Ago', '42700 Years Ago', '42800 Years Ago', '42900 Years Ago', '43000 Years Ago', '43100 Years Ago', '43200 Years Ago', '43300 Years Ago', '43400 Years Ago', '43500 Years Ago', '43600 Years Ago', '43700 Years Ago', '43800 Years Ago', '43900 Years Ago', '44000 Years Ago', '44100 Years Ago', '44200 Years Ago', '44300 Years Ago', '44400 Years Ago', '44500 Years Ago', '44600 Years Ago', '44700 Years Ago', '44800 Years Ago', '44900 Years Ago', '45000 Years Ago', '45100 Years Ago', '45200 Years Ago', '45300 Years Ago', '45400 Years Ago', '45500 Years Ago', '45600 Years Ago', '45700 Years Ago', '45800 Years Ago', '45900 Years Ago', '46000 Years Ago', '46100 Years Ago', '46200 Years Ago', '46300 Years Ago', '46400 Years Ago', '46500 Years Ago', '46600 Years Ago', '46700 Years Ago', '46800 Years Ago', '46900 Years Ago', '47000 Years Ago', '47100 Years Ago', '47200 Years Ago', '47300 Years Ago', '47400 Years Ago', '47500 Years Ago', '47600 Years Ago', '47700 Years Ago', '47800 Years Ago', '47900 Years Ago', '48000 Years Ago', '48100 Years Ago', '48200 Years Ago', '48300 Years Ago', '48400 Years Ago', '48500 Years Ago', '48600 Years Ago', '48700 Years Ago', '48800 Years Ago', '48900 Years Ago', '49000 Years Ago', '49100 Years Ago', '49200 Years Ago', '49300 Years Ago', '49400 Years Ago', '49500 Years Ago', '49600 Years Ago', '49700 Years Ago', '49800 Years Ago', '49900 Years Ago', '50000 Years Ago', '50100 Years Ago', '50200 Years Ago', '50300 Years Ago', '50400 Years Ago', '50500 Years Ago', '50600 Years Ago', '50700 Years Ago', '50800 Years Ago', '50900 Years Ago', '51000 Years Ago', '51100 Years Ago', '51200 Years Ago', '51300 Years Ago', '51400 Years Ago', '51500 Years Ago', '51600 Years Ago', '51700 Years Ago', '51800 Years Ago', '51900 Years Ago', '52000 Years Ago', '52100 Years Ago', '52200 Years Ago', '52300 Years Ago', '52400 Years Ago', '52500 Years Ago', '52600 Years Ago', '52700 Years Ago', '52800 Years Ago', '52900 Years Ago', '53000 Years Ago', '53100 Years Ago', '53200 Years Ago', '53300 Years Ago', '53400 Years Ago', '53500 Years Ago', '53600 Years Ago', '53700 Years Ago', '53800 Years Ago', '53900 Years Ago', '54000 Years Ago', '54100 Years Ago', '54200 Years Ago', '54300 Years Ago', '54400 Years Ago', '54500 Years Ago', '54600 Years Ago', '54700 Years Ago', '54800 Years Ago', '54900 Years Ago', '55000 Years Ago', '55100 Years Ago', '55200 Years Ago', '55300 Years Ago', '55400 Years Ago', '55500 Years Ago', '55600 Years Ago', '55700 Years Ago', '55800 Years Ago', '55900 Years Ago', '56000 Years Ago', '56100 Years Ago', '56200 Years Ago', '56300 Years Ago', '56400 Years Ago', '56500 Years Ago', '56600 Years Ago', '56700 Years Ago', '56800 Years Ago', '56900 Years Ago', '57000 Years Ago', '57100 Years Ago', '57200 Years Ago', '57300 Years Ago', '57400 Years Ago', '57500 Years Ago', '57600 Years Ago', '57700 Years Ago', '57800 Years Ago', '57900 Years Ago', '58000 Years Ago', '58100 Years Ago', '58200 Years Ago', '58300 Years Ago', '58400 Years Ago', '58500 Years Ago', '58600 Years Ago', '58700 Years Ago', '58800 Years Ago', '58900 Years Ago', '59000 Years Ago', '59100 Years Ago', '59200 Years Ago', '59300 Years Ago', '59400 Years Ago', '59500 Years Ago', '59600 Years Ago', '59700 Years Ago', '59800 Years Ago', '59900 Years Ago', '60000 Years Ago', '60100 Years Ago', '60200 Years Ago', '60300 Years Ago', '60400 Years Ago', '60500 Years Ago', '60600 Years Ago', '60700 Years Ago', '60800 Years Ago', '60900 Years Ago', '61000 Years Ago', '61100 Years Ago', '61200 Years Ago', '61300 Years Ago', '61400 Years Ago', '61500 Years Ago', '61600 Years Ago', '61700 Years Ago', '61800 Years Ago', '61900 Years Ago', '62000 Years Ago', '62100 Years Ago', '62200 Years Ago', 
+'62300 Years Ago', '62400 Years Ago', '62500 Years Ago', '62600 Years Ago', 
+'62700 Years Ago', '62800 Years Ago', '62900 Years Ago', '63000 Years Ago', '63100 Years Ago', '63200 Years Ago', '63300 Years Ago', '63400 Years Ago', '63500 Years Ago', '63600 Years Ago', '63700 Years Ago', '63800 Years Ago', '63900 Years Ago', '64000 Years Ago', '64100 Years Ago', '64200 Years Ago', '64300 Years Ago', '64400 Years Ago', '64500 Years Ago', '64600 Years Ago', '64700 Years Ago', '64800 Years Ago', '64900 Years Ago', '65000 Years Ago', '65100 Years Ago', '65200 Years Ago', '65300 Years Ago', '65400 Years Ago', '65500 Years Ago', '65600 Years Ago', '65700 Years Ago', '65800 Years Ago', '65900 Years Ago', '66000 Years Ago', '66100 Years Ago', '66200 Years Ago', '66300 Years Ago', '66400 Years Ago', '66500 Years Ago', '66600 Years Ago', '66700 Years Ago', '66800 Years Ago', '66900 Years Ago', '67000 Years Ago', '67100 Years Ago', '67200 Years Ago', '67300 Years Ago', '67400 Years Ago', '67500 Years Ago', '67600 Years Ago', '67700 Years Ago', '67800 Years Ago', '67900 Years Ago', '68000 Years Ago', '68100 Years Ago', '68200 Years Ago', '68300 Years Ago', '68400 Years Ago', '68500 Years Ago', '68600 Years Ago', '68700 Years Ago', '68800 Years Ago', '68900 Years Ago', '69000 Years Ago', '69100 Years Ago', '69200 Years Ago', '69300 Years Ago', '69400 Years Ago', '69500 Years Ago', '69600 Years Ago', '69700 Years Ago', '69800 Years Ago', '69900 Years Ago', '70000 Years Ago', '70100 Years Ago', '70200 Years Ago', '70300 Years Ago', '70400 Years Ago', '70500 Years Ago', '70600 Years Ago', '70700 Years Ago', '70800 Years Ago', '70900 Years Ago', '71000 Years Ago', '71100 Years Ago', '71200 Years Ago', '71300 Years Ago', '71400 Years Ago', '71500 Years Ago', '71600 Years Ago', '71700 Years Ago', '71800 Years Ago', '71900 Years Ago', '72000 Years Ago', '72100 Years Ago', '72200 Years Ago', '72300 Years Ago', '72400 Years Ago', '72500 Years Ago', '72600 Years Ago', '72700 Years Ago', '72800 Years Ago', '72900 Years Ago', '73000 Years Ago', '73100 Years Ago', '73200 Years Ago', '73300 Years Ago', '73400 Years Ago', '73500 Years Ago', '73600 Years Ago', '73700 Years Ago', '73800 Years Ago', '73900 Years Ago', '74000 Years Ago', '74100 Years Ago', '74200 Years Ago', '74300 Years Ago', '74400 Years Ago', '74500 Years Ago', '74600 Years Ago', '74700 Years Ago', '74800 Years Ago', '74900 Years Ago', '75000 Years Ago', '75100 Years Ago', '75200 Years Ago', '75300 Years Ago', '75400 Years Ago', '75500 Years Ago', '75600 Years Ago', '75700 Years Ago', '75800 Years Ago', '75900 Years Ago', '76000 Years Ago', '76100 Years Ago', '76200 Years Ago', '76300 Years Ago', '76400 Years Ago', '76500 Years Ago', '76600 Years Ago', '76700 Years Ago', '76800 Years Ago', '76900 Years Ago', '77000 Years Ago', '77100 Years Ago', '77200 Years Ago', '77300 Years Ago', '77400 Years Ago', '77500 Years Ago', '77600 Years Ago', '77700 Years Ago', '77800 Years Ago', '77900 Years Ago', '78000 Years Ago', '78100 Years Ago', '78200 Years Ago', '78300 Years Ago', '78400 Years Ago', '78500 Years Ago', '78600 Years Ago', '78700 Years Ago', '78800 Years Ago', '78900 Years Ago', '79000 Years Ago', '79100 Years Ago', '79200 Years Ago', '79300 Years Ago', '79400 Years Ago', '79500 Years Ago', '79600 Years Ago', '79700 Years Ago', '79800 Years Ago', '79900 Years Ago', '80000 Years Ago', '80100 Years Ago', '80200 Years Ago', '80300 Years Ago', '80400 Years Ago', '80500 Years Ago', '80600 Years Ago', '80700 Years Ago', '80800 Years Ago', '80900 Years Ago', '81000 Years Ago', '81100 Years Ago', '81200 Years Ago', '81300 Years Ago', '81400 Years Ago', '81500 Years Ago', '81600 Years Ago', '81700 Years Ago', '81800 Years Ago', '81900 Years Ago', '82000 Years Ago', '82100 Years Ago', '82200 Years Ago', '82300 Years Ago',
+'82400 Years Ago', '82500 Years Ago', '82600 Years Ago', '82700 Years Ago', '82800 Years Ago', '82900 Years Ago', '83000 Years Ago', '83100 Years Ago', '83200 Years Ago', '83300 Years Ago', '83400 Years Ago', '83500 Years Ago', '83600 Years Ago', '83700 Years Ago', '83800 Years Ago', '83900 Years Ago', '84000 Years Ago', '84100 Years Ago', '84200 Years Ago', '84300 Years Ago', '84400 Years Ago', '84500 Years Ago', '84600 Years Ago', '84700 Years Ago', '84800 Years Ago', '84900 Years Ago', '85000 Years Ago', '85100 Years Ago', '85200 Years Ago', '85300 Years Ago', '85400 Years Ago', '85500 Years Ago', '85600 Years Ago', '85700 Years Ago', '85800 Years Ago', '85900 Years Ago', '86000 Years Ago', '86100 Years Ago', '86200 Years Ago', '86300 Years Ago', '86400 Years Ago', '86500 Years Ago', '86600 Years Ago', '86700 Years Ago', '86800 Years Ago', '86900 Years Ago', '87000 Years Ago', '87100 Years Ago', '87200 Years Ago', '87300 Years Ago', '87400 Years Ago', '87500 Years Ago', '87600 Years Ago', '87700 Years Ago', '87800 Years Ago', '87900 Years Ago', '88000 Years Ago', '88100 Years Ago', '88200 Years Ago', '88300 Years Ago', '88400 Years Ago', '88500 Years Ago', '88600 Years Ago', '88700 Years Ago', '88800 Years Ago', '88900 Years Ago', '89000 Years Ago', '89100 Years Ago', '89200 Years Ago', '89300 Years Ago', '89400 Years Ago', '89500 Years Ago', '89600 Years Ago', '89700 Years Ago', '89800 Years Ago', '89900 Years Ago', '90000 Years Ago', '90100 Years Ago', '90200 Years Ago', '90300 Years Ago', '90400 Years Ago', '90500 Years Ago', '90600 Years Ago', '90700 Years Ago', '90800 Years Ago', '90900 Years Ago', '91000 Years Ago', '91100 Years Ago', '91200 Years Ago', '91300 Years Ago', '91400 Years Ago', '91500 Years Ago', '91600 Years Ago', '91700 Years Ago', '91800 Years Ago', '91900 Years Ago', '92000 Years Ago', '92100 Years Ago', '92200 Years Ago', '92300 Years Ago', '92400 Years Ago', '92500 Years Ago', '92600 Years Ago', '92700 Years Ago', '92800 Years Ago', '92900 Years Ago', '93000 Years Ago', '93100 Years Ago', '93200 Years Ago', '93300 Years Ago', '93400 Years Ago', '93500 Years Ago', '93600 Years Ago', '93700 Years Ago', '93800 Years Ago', '93900 Years Ago', '94000 Years Ago', '94100 Years Ago', '94200 Years Ago', '94300 Years Ago', '94400 Years Ago', '94500 Years Ago', '94600 Years Ago', '94700 Years Ago', '94800 Years Ago', '94900 Years Ago', '95000 Years Ago', '95100 Years Ago', '95200 Years Ago', '95300 Years Ago', '95400 Years Ago', '95500 Years Ago', '95600 Years Ago', '95700 Years Ago', '95800 Years Ago', '95900 Years Ago', '96000 Years Ago', '96100 Years Ago', '96200 Years Ago', '96300 Years Ago', '96400 Years Ago', '96500 Years Ago', '96600 Years Ago', '96700 Years Ago', '96800 Years Ago', '96900 Years Ago', '97000 Years Ago', '97100 Years Ago', '97200 Years Ago', '97300 Years Ago', '97400 Years Ago', '97500 Years Ago', '97600 Years Ago', '97700 Years Ago', '97800 Years Ago', '97900 Years Ago', '98000 Years Ago', '98100 Years Ago', '98200 Years Ago', '98300 Years Ago', '98400 Years Ago', '98500 Years Ago', '98600 Years Ago', '98700 Years Ago', '98800 Years Ago', '98900 Years Ago', '99000 Years Ago', '99100 Years Ago', '99200 Years Ago', '99300 Years Ago', '99400 Years Ago', '99500 Years Ago', '99600 Years Ago', '99700 Years Ago', '99800 Years Ago', '99900 Years Ago', '1e+05 Years Ago', '100100 Years Ago', '100200 Years Ago', '100300 Years Ago', '100400 Years Ago', '100500 Years Ago', '100600 Years Ago', '100700 Years Ago', '100800 Years Ago', '100900 Years Ago', '101000 Years Ago', '101100 Years Ago', '101200 Years Ago', '101300 Years Ago', '101400 Years Ago', '101500 Years Ago', '101600 Years Ago', '101700 Years Ago', '101800 Years Ago', '101900 Years Ago', '102000 Years Ago', '102100 Years Ago', '102200 Years Ago', '102300 Years Ago', '102400 Years Ago', '102500 Years Ago', '102600 Years Ago', '102700 Years Ago', '102800 Years Ago', '102900 Years Ago', '103000 Years Ago', '103100 Years Ago', '103200 Years Ago', '103300 Years Ago', '103400 Years Ago', '103500 Years Ago', '103600 Years Ago', '103700 Years Ago', '103800 Years Ago', '103900 Years Ago', '104000 Years Ago', '104100 Years Ago', '104200 Years Ago', '104300 Years Ago', '104400 Years Ago', '104500 Years Ago', '104600 Years Ago', '104700 Years Ago', '104800 Years Ago', '104900 Years Ago', '105000 Years Ago', '105100 Years Ago', '105200 Years Ago', '105300 Years Ago', '105400 Years Ago', '105500 Years Ago', '105600 Years Ago', '105700 Years Ago', '105800 Years Ago', '105900 Years Ago', '106000 Years Ago', '106100 Years Ago', '106200 Years Ago', '106300 Years Ago', '106400 Years Ago', '106500 Years Ago', '106600 Years Ago', '106700 Years Ago', '106800 Years Ago', '106900 Years Ago', '107000 Years Ago', '107100 Years Ago', '107200 Years Ago', '107300 Years Ago', '107400 Years Ago', '107500 Years Ago', '107600 Years Ago', '107700 Years Ago', '107800 Years Ago', '107900 Years Ago', '108000 Years Ago', '108100 Years Ago', '108200 Years Ago', '108300 Years Ago', '108400 Years Ago', '108500 Years Ago', '108600 Years Ago', '108700 Years Ago', '108800 Years Ago', '108900 Years Ago', '109000 Years Ago', '109100 Years Ago', '109200 Years Ago', '109300 Years Ago', '109400 Years Ago', '109500 Years Ago', '109600 Years Ago', '109700 Years Ago', '109800 Years Ago', '109900 Years Ago', '110000 Years Ago', '110100 Years Ago', '110200 Years Ago', '110300 Years Ago', '110400 Years Ago', '110500 Years Ago', '110600 Years Ago', '110700 Years Ago', '110800 Years Ago', '110900 Years Ago', '111000 Years Ago', '111100 Years Ago', '111200 Years Ago', '111300 Years Ago', '111400 Years Ago', '111500 Years Ago', '111600 Years Ago', '111700 Years Ago', '111800 Years Ago', '111900 Years Ago', '112000 Years Ago', '112100 Years Ago', '112200 Years Ago', '112300 Years Ago', '112400 Years Ago', '112500 Years Ago', '112600 Years Ago', '112700 Years Ago', '112800 Years Ago', '112900 Years Ago', '113000 Years Ago', '113100 Years Ago', '113200 Years Ago', '113300 Years Ago', '113400 Years Ago', '113500 Years Ago', '113600 Years Ago', '113700 Years Ago', '113800 Years Ago', '113900 Years Ago', '114000 Years Ago', '114100 Years Ago', '114200 Years Ago', '114300 Years Ago', '114400 Years Ago', '114500 Years Ago', '114600 Years Ago', '114700 Years Ago', '114800 Years Ago', '114900 Years Ago', '115000 Years Ago', '115100 Years Ago', '115200 Years Ago', '115300 Years Ago', '115400 Years Ago', '115500 Years Ago', '115600 Years Ago', '115700 Years Ago', 
+'115800 Years Ago', '115900 Years Ago', '116000 Years Ago', '116100 Years Ago', '116200 Years Ago', '116300 Years Ago', '116400 Years Ago', '116500 Years Ago', '116600 Years Ago', '116700 Years Ago', '116800 Years Ago', '116900 Years Ago', '117000 Years Ago', '117100 Years Ago', '117200 Years Ago', '117300 Years Ago', '117400 Years Ago', '117500 Years Ago', '117600 Years Ago', '117700 Years Ago', '117800 Years Ago', '117900 Years Ago', '118000 Years Ago', '118100 Years Ago', '118200 Years Ago', '118300 Years Ago', '118400 Years Ago', '118500 Years Ago', '118600 Years Ago', '118700 Years Ago', '118800 Years Ago', '118900 Years Ago', '119000 Years Ago', '119100 Years Ago', '119200 Years Ago', '119300 Years Ago', '119400 Years Ago', '119500 Years Ago', '119600 Years Ago', '119700 Years Ago', '119800 Years Ago', '119900 Years Ago', '120000 Years Ago', '120100 Years Ago', '120200 Years Ago', '120300 Years Ago', '120400 Years Ago', '120500 Years Ago', '120600 Years Ago', '120700 Years Ago', '120800 Years Ago', '120900 Years Ago', '121000 Years Ago', '121100 Years Ago', '121200 Years Ago', '121300 Years Ago', '121400 Years Ago', '121500 Years Ago', '121600 Years Ago', '121700 Years Ago', '121800 Years Ago', '121900 Years Ago', '122000 Years Ago', '122100 Years Ago', '122200 Years Ago', '122300 Years Ago', '122400 Years Ago', '122500 Years Ago', '122600 Years Ago', '122700 Years Ago', '122800 Years Ago', '122900 Years Ago', '123000 Years Ago', '123100 Years Ago', '123200 Years Ago', '123300 Years Ago', '123400 Years Ago', '123500 Years Ago', '123600 Years Ago', '123700 Years Ago', '123800 Years Ago', '123900 Years Ago', '124000 Years Ago', '124100 Years Ago', '124200 Years Ago', '124300 Years Ago', '124400 Years Ago', 
+'124500 Years Ago', '124600 Years Ago', '124700 Years Ago', '124800 Years Ago', '124900 Years Ago', '125000 Years Ago']
+      ,
+        placeholder: 'Select Years From Present'
+        //onChange: change_sea_level_func
+        });
+        
+        
+var years_select = ui.Select({items: ['20', '18', '16', '14', '12', '10', '8', '6', '4', '2', '0', '-2', '-4', '-6', '-8', '-10', '-12', '-14', '-16', '-18', '-20', '-22', '-24', '-26', '-28', '-30', '-32', '-34', '-36', '-38', '-40', '-42', '-44', '-46', '-48', '-50', '-52', '-54', '-56', '-58', '-60', '-62', '-64', '-66', '-68', '-70', '-72', '-74', '-76', '-78', '-80', '-82', '-84', '-86', '-88', '-90', '-92', '-94', '-96', '-98', '-100']
+  ,placeholder: 'Select Sea-Level (m) Difference to Present'});
+
+//Create chart panel for elevation histogram
+var chartPanel = ui.Panel({
+    style:{height: '225px', width: '100%', shown: false}
+});
+      
+      
+//Function to create chart series
+ function chartElevSeries() {
+
+  // Make the chart panel visible the first time a geometry is drawn.
+
+      if (!chartPanel.style().get('shown')) {
+
+        chartPanel.style().set('shown', true);
+  
+      }
+
+  // Get the drawn geometry; it will define the reduction region.
+
+      var aoi = drawingTools.layers().get(0).getEeObject();
+
+  // Set the drawing mode back to null; turns drawing off.
+
+      drawingTools.setShape(null);
+
+  // Reduction scale is based on map scale to avoid memory/timeout errors.
+
+      var mapScale = leftMap.getScale();
+
+      var scale = mapScale > 5000 ? mapScale * 2 : 5000;
+
+  // Chart NDVI time series for the selected area of interest.
+  
+  // Define a MODIS surface reflectance composite.
+
+      var chart_raster = gebco_grid.median();
+
+      // Define the chart and print it to the console.
+
+      var chart =
+
+        ui.Chart.image.histogram({image: chart_raster, region: aoi, scale: 500})
+
+            .setOptions({
+
+              title: 'Elevation Histogram',
+
+              hAxis: {
+
+                title: 'Elevation (m relative to current sea level)',
+
+                titleTextStyle: {italic: false, bold: true},
+
+              },
+
+              vAxis:
+
+                  {title: 'Count', titleTextStyle: {italic: false, bold: true}},
+
+              colors: ['cf513e']
+
+              });
+
+
+          // Replace the existing chart in the chart panel with the new chart.
+
+          chartPanel.widgets().reset([chart]);
+
+      }
+  
+
+  
+      
+// Adds a layer selection widget to the given map, to allow users to change
+// which image is displayed in the associated map.
+function addLayerSelector(mapToChange, defaultValue, position) {
+  var panelHeading = (defaultValue == '0') ? 
+      ui.Label("Historic Sea-Levels", {fontSize:'25px', fontWeight:'bold'}) : 
+      ui.Label("Elevation Histogram for Drawn Area", {fontSize:'18px', fontWeight:'bold'});
+      
+
+    var subtitle = ui.Label('Use GEBCO bathymetry and elevation data'+
+  ' to visualise change in sea-level in history'+
+  ' and compare to current sea level. Based on sea-level curve from Grant et al. 2012 and qgis_sea_level_tool plugin for QGIS by Patrick Morrison.', {});
+
+
+
+    var title_1 = ui.Label('Sea-Level Selector by Year',
+      {fontWeight: 'bold', fontSize: '18px', margin: '10px 5px'}
+    );
+    var subtitle1 = ui.Label('Creates map layer for selected year for current map extent. New layer added to right panel for every selection. Select or de-select layers in Layers button on right map. Left map is current sea-level and terrain.', {});
+    var title_sl = ui.Label('Sea-Level Selector by m Difference to Present',
+      {fontWeight: 'bold', fontSize: '18px', margin: '10px 5px'}
+    );
+
+  //var label = (defaultValue == '0') ? ui.Label("Pre-flood date range:") : ui.Label("During-flood date range:");
+  //var show_optical = (defaultValue == '0') ? show_left_optical : show_right_optical
+  //var show_sar = (defaultValue == '0') ? show_left_sar : show_right_sar
+  
+  var controlPanel = ui.Panel({style: {position: position, width:'25%'}});
+  // Add panel heading
+  controlPanel.add(panelHeading)
+  
+  var leftSubPanel0 = ui.Panel({
+    layout: ui.Panel.Layout.flow('vertical'),
+    style:{width: '100%'}
+  })
+
+ //SubPanel to host buttons
+  var leftSubPanel1 = ui.Panel({
+    layout: ui.Panel.Layout.flow('horizontal'),
+    style:{width: '100%'}
+  })
+  var leftSubPanel1b = ui.Panel({
+    layout: ui.Panel.Layout.flow('horizontal'),
+    style:{width: '100%'}
+  })
+  
+  /////////////////// Create drop-downs
+  //Define the selection for years
+ // var dateSlider = ui.Select({
+    //    items:years.getInfo(), 
+     //   placeholder: 'Select Years From Present'
+        //onChange: change_sea_level_func
+     //   })
+  var calcbutton = ui.Button({
+      label: 'Calculate Sea-Level Map', 
+      onClick: region_calc});
+  var calcbutton_sl = ui.Button({
+      label: 'Calculate Sea-Level Map by m', 
+      onClick: region_calc1});
+  
+  //Another subpanel for links
+    var panelp0 = ui.Panel({
+      layout: ui.Panel.Layout.flow('horizontal'),
+      style: {width: '100%'}
+    });
+
+    panelp0.style().set({border: '2px solid darkgray',backgroundColor: 'lightgray'
+    });
+    
+    var gebco_ref = ui.Label('GEBCO', {shown: false});
+    gebco_ref.setUrl("https://www.gebco.net/data_and_products/gridded_bathymetry_data/gebco_2023/");
+    gebco_ref.style().set({backgroundColor: 'lightgray',shown: true});
+
+    var Grant = ui.Label('Grant et al. 2012', {shown: false});
+    Grant.setUrl("https://www.nature.com/articles/nature11593");
+    Grant.style().set({backgroundColor: 'lightgray',shown: true});
+
+    var pat = ui.Label('QGIS Sea Level Tool - GitHub', {shown: false});
+    pat.setUrl("https://github.com/patrick-morrison/qgis_sea_level_tool?fbclid=IwAR2Vyzf4irU7ddnRWt_mcHPcNZ9PVxX3sQm_pSP5-zy0TDfdCp1Ch0KWb4I");
+    pat.style().set({backgroundColor: 'lightgray',shown: true});
+
+  panelp0.add(gebco_ref).add(Grant).add(pat);
+
+  //Another subpanel for shoreline layer add
+    var panelp01 = ui.Panel({
+      layout: ui.Panel.Layout.flow('horizontal'),
+      style: {width: '100%'}
+    });
+
+  
+  var panelp_ref = ui.Panel({
+      layout: ui.Panel.Layout.flow('vertical'),
+      style: {width: '100%'}
+    });
+    
+  var shore_ref = ui.Label('Global Shoreline Dataset', {shown: false});
+    shore_ref.setUrl("https://doi.org/10.1080/1755876X.2018.1529714");
+    shore_ref.style().set({shown: true});
+    
+  var shore_ref_warn = ui.Label('Warning: Shoreline dataset is large and takes time to load. Includes three layers, use Layers selection box on map to switch between', {color: 'red'});
+    
+  panelp_ref.add(shore_ref_warn);
+
+ //Add tick box to panelp01 for adding shorelines
+  var checkboxR = ui.Checkbox('Add Current Shoreline to Right Map', false);
+  checkboxR.onChange(function(isChecked) {
+  // Shows or hides the shoreline layers to right and left based on the checkbox's value.
+  if (isChecked) {
+  rightMap.addLayer(ee.Image().paint(mainlands,0,3), {"palette":["008000"]}, 'Shoreline Mainlands')
+  rightMap.addLayer(ee.Image().paint(big_islands,0,3), {"palette":["0000FF"]}, 'Shoreline Big Islands')
+  //var test_layer = (ee.Image().paint(small_islands,0,3), {"palette":["FF0000"]}, 'Shoreline Small Islands')
+  rightMap.addLayer(ee.Image().paint(small_islands,0,3), {"palette":["FF0000"]}, 'Shoreline Small Islands');
+  
+  
+  //var tl = ui.Map.Layer(ee.Image().paint(small_islands,0,3), {"palette":["FF0000"]}, 'Shoreline Small Islands');
+  
+  
+   //var list = rightMap.layers()
+   //print(list.length())
+  //rightMap.insert(0,tl);
+  
+  //rightMap.layers().set(0, tl);//insert 0 inserts it at the bottom, set replaces the layer at the top, so need if statement for adding new sea-level layers if this is ticked
+          //3 island layers, so want to add in as 4th from top down, but need number from bottom (incl. 0)
+  //equation= length-3
+
+//Map.layers().get(0).setShown(checked);
+  }else{
+    
+    var removeLayer = function(name) {
+        var layers = rightMap.layers()
+        // list of layers names
+        var names = []
+        layers.forEach(function(lay) {
+          var lay_name = lay.getName()
+          names.push(lay_name)
+        })
+        // get index
+        var index = names.indexOf(name)
+        if (index > -1) {
+          // if name in names
+          var layer = layers.get(index)
+          rightMap.remove(layer)
+        } else {
+          print('Layer '+name+' not found')
+        }
+      }
+
+    //Import tools
+    // import tools
+    
+
+// use function
+    removeLayer('Shoreline Mainlands');
+    removeLayer('Shoreline Small Islands');
+    removeLayer('Shoreline Big Islands');
+    
+  }  
+    
+    
+    
+  });
+  
+  panelp01.add(checkboxR).add(shore_ref)
+
+  // Add drop-downs to the sub-panel
+  leftSubPanel0.add(subtitle).add(panelp0).add(panelp01).add(panelp_ref);///////////////////////////////////////////
+  leftSubPanel0.add(title_1).add(subtitle1);
+  
+  leftSubPanel1.add(dateSlider);
+  //leftSubPanel1.add(statesDD)
+  leftSubPanel1.add(calcbutton);
+  
+  
+  
+  ///Add new sub-panel for sea-level m selector option
+  leftSubPanel1b.add(years_select);
+  //leftSubPanel1.add(statesDD)
+  leftSubPanel1b.add(calcbutton_sl);
+
+  
+  // Set a common title
+  var title = ui.Label('Historic Sea-Level Explorer',
+  {
+    //stretch: 'horizontal',
+    textAlign: 'center',
+    fontWeight: 'bold',
+    fontSize: '16px'
+  });
+  
+  // use the legend module to create the legend for flood layer
+  //var legend = floodLegend.legend();
+    
+  // Add elements to the left panel only
+  if(defaultValue == 0){
+    //var dd_heading = ui.Label("Select year to examine sea-level")
+    //controlPanel.add(dd_heading);
+    controlPanel.add(leftSubPanel0);
+    controlPanel.add(leftSubPanel1);
+  
+    var resetButton = ui.Button({
+      label: 'Reset Right Map', 
+        onClick: function(){
+          //If checkbox is checked, uncheck it
+          
+          if (checkboxR.getValue(true)) {
+            checkboxR.setValue(false)
+            
+          //if (isChecked) {
+            
+          }
+          //Clear the select buttons
+          years_select.setValue(null, false);
+          dateSlider.setValue(null, false);
+          rightMap.clear();
+          rightMap.addLayer(elev_class, visparams, 'Current', false);
+          rightMap.add(legend);
+          },
+        style:{fontSize:'14px', color:'red'}});
+    
+    controlPanel.add(resetButton);
+    var hist_subs = ui.Label('Draw shape to create elevation histogram for extent', {});
+    
+    var hist_title = ui.Label('Elevation Histogram for Drawn Area',
+      {fontWeight: 'bold', fontSize: '18px', margin: '10px 5px'}
+    );
+  
+    controlPanel.add(title_sl).add(leftSubPanel1b);
+
+    controlPanel.add(hist_title).add(hist_subs).add(chartPanel);
+
+
+    // This section is to add widgets in the right panel only
+
+      // Create sub-panel to accomodate buttons
+      var rightSubPanel1 = ui.Panel({
+        layout: ui.Panel.Layout.flow('horizontal', true),
+        style:{width: '100%'}})
+      var rightSubPanel2 = ui.Panel({
+        layout: ui.Panel.Layout.flow('horizontal', true),
+        style:{width: '100%'}})
+      
+      
+      // Add button and link to download flood shapefile
+      var gif_label = ui.Label('GIF Link', {shown: false});
+      
+      
+      var tm_video = ui.Button({
+        label: 'Create GIF of sea-level change',
+        onClick: function(){
+  
+    //Define the region  
+    var region = drawingTools.layers().get(0).getEeObject();//REGION from drawn polygon
+  //////IF THE RESOLUTION DOESNT LOOK GOOD, CHANGE TO RECALCULATE WITHIN THE FUNCTION INSTEAD
+  
+    var clip_icregion = function (image){var ic=image.clip(region);return ic};
+    
+    var filt_subtractedImageCollection1 = subtractedImageCollection1.map(clip_icregion);
+    
+    // Filter the collection to get the first and last images
+    var firstImage =  filt_subtractedImageCollection1.first();
+    var lastImage =  filt_subtractedImageCollection1.sort('age', false).first();
+
+    //Remove first and last image from image collection
+
+    //Filter first and last 
+    var fil_removed = filt_subtractedImageCollection1.filter('age >  0');
+    var fil_removed1 = filt_subtractedImageCollection1.filter('age <  125');
+
+
+    // Define the number of images per group
+    var imagesPerGroup = 10;
+
+    // Convert the  image collection (without first and last image years) to a list
+    var imageList = fil_removed.toList(fil_removed.size());
+
+    // Iterate through the image list and assign index numbers to groups
+    var groupedCollection = ee.ImageCollection.fromImages(
+      ee.List.sequence(0, imageList.size(), imagesPerGroup)
+        .map(function(startIndex) {
+          var endIndex = ee.Number(startIndex).add(imagesPerGroup);
+          var groupImages = imageList.slice(startIndex, endIndex);
+          return groupImages.map(function(image) {
+            return ee.Image(image).set('groupIndex', startIndex);
+          });
+        })
+        .flatten()
+    );
+
+    // Convert the original image collection to a list
+    var imageList = groupedCollection.toList(groupedCollection.size());
+    //print(imageList);
+    // Create a list of group indices
+    var groupIndices = ee.List.sequence(0, imageList.size().subtract(1), imagesPerGroup)
+      .map(function(startIndex) {
+        return startIndex;
+      });
+
+    // Iterate through group indices and reduce the images
+    var groupedAndAveragedCollection = groupIndices.map(function(groupIndex) {
+      var groupImages = imageList.filter(ee.Filter.eq('groupIndex', groupIndex));
+      var firstImage = ee.Image(groupImages.get(0));
+      var age_name = firstImage.get("age_name"); 
+      var age = firstImage.get("age"); 
+      var groupImagesCollection = ee.ImageCollection(groupImages);
+  
+      var reducedImage = groupImagesCollection.reduce(ee.Reducer.mean());
+      return reducedImage.set('age_name', age_name).set("age", age); 
+    });
+
+    // Convert the list of reduced images to an image collection
+    var averagedCollection = ee.ImageCollection.fromImages(groupedAndAveragedCollection);
+
+    // Concatenate the new image to the filtered collection
+    var updatedCollection = ee.ImageCollection([firstImage]).merge(averagedCollection);
+
+    // Merge the image to the end of the collection
+    ////THIS CREATES THE COLLECTION TO USE FOR THE GIFS
+    var gif_Collection = updatedCollection.merge(ee.ImageCollection([lastImage]));
+
+  
+    // Define arguments for animation function parameters.
+      var videoArgs = {
+        dimensions: 500,
+        region: region,
+        framesPerSecond: 5,
+        crs: 'EPSG:3857',
+        min: 1,
+        max: 18,
+        maxPixels: 1e13,
+        palette: ["#000000","#000064","#000064","#2a4996","#2d4a90","#4789d0","#96c3de","#f4f3dd","#f4f3dd","#6a8e6a","#599759","#4b8e4b","#428742","#4d854f","#3d8d49","#74784d","#dcdcdc","#ffffff"]
+      };
+
+      // Alternatively, print a URL that will produce the animation when accessed.
+      var gifURL = gif_Collection.getVideoThumbURL(videoArgs);
+  
+      var urlLabel = ui.Label('View GIF', {shown: false});
+      urlLabel.setUrl(gifURL);
+      urlLabel.style().set({shown: true});
+
+ 
+      rightSubPanel1.widgets().set(1,urlLabel);
+      rightSubPanel2.widgets().set(0,ui.Thumbnail(gif_Collection, videoArgs));
+      
+        }});
+      
+      var title2 = ui.Label('Sea-Level Change GIF',
+      {fontWeight: 'bold', fontSize: '18px', margin: '10px 5px'}
+      );
+      var subtitle2 = ui.Label('Creates link to access GIF of sea-level change across time for drawn region. Use rectangle or square to create small region to develop GIF for. Click the button and a "View GIF" will appear below if region is small enough. Reduce region size if it does not. Right click GIF to save. ', {});
+      var sub_warning = ui.Label('If GIF does not appear, reduce region size',{color: 'red'});
+      var panelp2 = ui.Panel({
+          layout: ui.Panel.Layout.flow('horizontal'),
+          style: {width: '100%'}
+      });
+
+      controlPanel.add(title2).add(subtitle2).add(sub_warning);
+
+      
+      rightSubPanel1.add(tm_video);////GIF VIEW LINK
+      
+      controlPanel.add(rightSubPanel1);
+      controlPanel.add(rightSubPanel2);
+      
+    
+  }
+  
+  // Add download button to the right panel
+  if(defaultValue == 1){}else{}
+  
+  // dummy panel to add on the either side
+  var dummyPanel = ui.Panel({
+    widgets: [], 
+    style: {width:'18%'}});
+  
+  //leftMap.add(title);
+  return [controlPanel, dummyPanel];
+}
+
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// Create left and right maps
+var leftMap = ui.Map();
+leftMap.setControlVisibility(true);
+
+var rightMap = ui.Map();
+rightMap.setControlVisibility(true);
+
+
+////Drawing tools replace
+var drawingTools = leftMap.drawingTools();
+drawingTools.setShown(false);
+
+while (drawingTools.layers().length() > 0) {
+  var layer = drawingTools.layers().get(0);
+  drawingTools.layers().remove(layer);
+}
+
+var dummyGeometry =
+    ui.Map.GeometryLayer({geometries: null, name: 'geometry', color: '23cba7'});
+
+drawingTools.layers().add(dummyGeometry);
+
+function clearGeometry() {
+  var layers = drawingTools.layers();
+  layers.get(0).geometries().remove(layers.get(0).geometries().get(0));
+}
+
+function drawRectangle() {
+  clearGeometry();
+  drawingTools.setShape('rectangle');
+  drawingTools.draw();
+}
+
+function drawPolygon() {
+  clearGeometry();
+  drawingTools.setShape('polygon');
+  drawingTools.draw();
+}
+
+//Reduce frequency of chart function being being invoked (have slight delay)
+drawingTools.onDraw(ui.util.debounce(chartElevSeries, 500));
+drawingTools.onEdit(ui.util.debounce(chartElevSeries, 500));
+
+//////////////////OTHER FUNCTIONS///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+function region_calc(){
+      //Define the region
+    //var value1 = dateSlider.getValue();
+    var aoi = ee.Geometry.Rectangle(leftMap.getBounds()); 
+    var desiredAgeName = dateSlider.getValue();
+
+    // Filter the subtractedImageCollection based on the desired age name
+    var desiredImage = subtractedImageCollection1
+      .filter(ee.Filter.eq("age_name", desiredAgeName))
+      .first().clip(aoi); // Get the first image that matches the filter
+
+    // Add the desired image as a map layer
+    
+    //Need IF statement to see if the checkbox for the outline coastline layers is checked.If checked, must make sure to add the layer 
+    //BELOW them, but above any other old layers
+    //3 island layers, so want to add in as 4th from top down, but need number from bottom (incl. 0), so equation= length-3
+    
+    //1. Get length of list of layers in the right map at current\
+    //var layers = rightMap.layers();
+    //var layer_numbers  = layers.length();
+    //print(layer_numbers);
+    
+    //print(layers.length());
+    
+    //var value = layer_numbers.get(0);
+    //var position1 = ee.Number(layer_numbers).subtract(3);
+
+    //var position = position1.push();
+    
+    //var position = position1.subtract(3);
+    
+    
+    //var new_image = ee.Image(desiredImage);
+    
+    //var new_image_mu = ui.Map.Layer(ee.Image(desiredImage), visparams, "Sea-level for year " + desiredAgeName);
+   
+   
+    //rightMap.insert(0,tl);
+    //rightMap.layers().insert(position, new_image_mu);
+
+    //equation= length-3
+    
+    
+    rightMap.addLayer(desiredImage, visparams, "Sea-level for year " + desiredAgeName);
+
+    clearGeometry(); // clear any polygon from the map
+      
+      
+        }
+        
+function region_calc1() {
+      var value = years_select.getValue();
+      var value_n = ee.Number.parse(value);
+
+      //Define the region from drawing tools
+      var aoi = ee.Geometry.Rectangle(leftMap.getBounds());
+
+  //Change elevation display for selected area
+     var sealev_raster = gebco_grid.median().clip(aoi).select(['b1']);
+     
+      var new_sl = sealev_raster.subtract(value_n);//THIS IS WHERE ADD THE  VALUE FOR THE YEAR SELECTED
+      
+  //Remap so can display properly
+
+    var sub_image_remap1 = updateElevClass(new_sl);
+
+// Add to map
+    rightMap.addLayer(sub_image_remap1, visparams, 'When sea-level is  '+ value+' m different');
+    
+    clearGeometry(); // clear any polygon from the left map
+
+          
+        }
+        
+
+//////////////////////////////////
+//Add current elevation layer to the maps
+leftMap.addLayer(elev_class, visparams, 'Current');
+rightMap.addLayer(elev_class, visparams, 'Current', false);
+
+leftMap.setCenter(92, -17,3);
+
+
+
+
+
+
+var left_panel = addLayerSelector(leftMap, 0, 'middle-left');
+var left_dummy = left_panel[1];
+left_panel = left_panel[0];
+
+var main_panel = left_panel
+
+addLayerSelector(leftMap, 0,'middle-right')
+
+
+var symbol = {
+      rectangle: '⬛',
+      polygon: '🔺'
+    };
+
+var controlPanel1 = ui.Panel({
+      widgets: [
+        ui.Label('1. Select a drawing mode for histogram.'),
+        ui.Button({
+          label: symbol.rectangle + ' Rectangle',
+          onClick: drawRectangle,
+          style: {stretch: 'horizontal'}
+        }),
+        ui.Button({
+          label: symbol.polygon + ' Polygon',
+          onClick: drawPolygon,
+          style: {stretch: 'horizontal'}
+        }),
+        ui.Label('2. Draw a geometry.'),
+        ui.Label('3. Wait for chart to render.')
+      ],
+      style: {position: 'bottom-left'},
+      layout: null,
+    })
+    
+leftMap.add(controlPanel1);
+
+
+var leftPiece = ui.Panel(
+  [
+    leftMap,
+    ],
+    ui.Panel.Layout.Flow('horizontal'), {stretch: 'both'});
+    
+
+// Create a SplitPanel to hold the adjacent, linked maps.
+var splitPanel = ui.SplitPanel({
+  firstPanel: leftMap,
+  secondPanel: rightMap,
+  wipe: true,
+  style: {stretch: 'both'}
+});
+
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//Add legend//
+// set position of panel 
+var legend = ui.Panel({
+  style: {
+    position: 'bottom-right',
+    padding: '8px 15px'
+  }
+});
+ 
+// Create legend title
+var legendTitle = ui.Label({
+  value: 'mASL',
+  style: {
+    fontWeight: 'bold',
+    fontSize: '18px',
+    margin: '0 0 4px 0',
+    padding: '0'
+    }
+});
+ 
+// Add the title to the panel
+legend.add(legendTitle);
+ 
+// Creates and styles 1 row of the legend.
+var makeRow = function(color, name) {
+ 
+      // Create the label that is actually the colored box.
+      var colorBox = ui.Label({
+        style: {
+          backgroundColor: '#' + color,
+          // Use padding to give the box height and width.
+          padding: '8px',
+          margin: '0 0 4px 0'
+        }
+      });
+ 
+      // Create the label filled with the description text.
+      var description = ui.Label({
+        value: name,
+        style: {margin: '0 0 4px 6px'}
+      });
+ 
+      // return the panel
+      return ui.Panel({
+        widgets: [colorBox, description],
+        layout: ui.Panel.Layout.Flow('horizontal')
+      });
+};
+ 
+//  Palette with the colors
+var palette = ["000000","000064","2a4996","2d4a90","4789d0","96c3de","f4f3dd","6a8e6a","599759",
+"4b8e4b","428742","4d854f","3d8d49","74784d","dcdcdc","ffffff"];
+
+// name of the legend
+//var names = ['Red','Green','Blue'];
+var names =    ['<-3000',
+    '-3000 - -500',
+    '-500 - -50',
+    '-50 - -30',
+    '-30 - -5',
+    '-5 - -0.2',
+    '-0.2 - 1.8',
+    '1.8 - 2.8',
+    '2.8 - 100',
+    '100 - 200',
+    '200 - 300',
+    '300 -350',
+    '350 - 700',
+    '700 - 1500',
+    '1500 - 2000',
+    '>2000']
+ 
+// Add color and and names
+for (var i = 0; i < 16; i++) {
+  legend.add(makeRow(palette[i], names[i]));
+  }  
+ 
+// add legend to map (alternatively you can also print the legend to the console)
+rightMap.add(legend);
+
+
+// Set the SplitPanel as the only thing in the UI root.
+function refresh(){
+  ui.root.widgets().reset([splitPanel]);
+}
+refresh();
+
+ui.root.insert(0, main_panel);
+//ui.root.insert(1,legend)
+
+var linker = ui.Map.Linker([leftMap, rightMap]);
+
+//leftMap.setCenter(-4.843, 51.392,6)
