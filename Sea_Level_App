@@ -1,4 +1,6 @@
-ar gebco_grid = ee.ImageCollection("projects/sat-io/open-datasets/gebco/gebco_grid"),
+//Imports used
+
+var gebco_grid = ee.ImageCollection("projects/sat-io/open-datasets/gebco/gebco_grid"),
     geometry = /* color: #23cba7 */ee.Geometry.MultiPoint(),
     table = ee.FeatureCollection("projects/white-berm-358813/assets/predictions"),
     geometry1 = 
@@ -14,14 +16,11 @@ ar gebco_grid = ee.ImageCollection("projects/sat-io/open-datasets/gebco/gebco_gr
           [116.6717033181876, -34.05909798307843],
           [116.6717033181876, -31.04076713922099]]], null, false);
 
+//AppStart
 
 //Select box dropdown for colour palette options, and on change update the visparams
 var visparams = {"min":0,"max":18,"palette":["#000000","#000064","#000064","#2a4996","#2d4a90","#4789d0","#96c3de","#f4f3dd","#f4f3dd","#6a8e6a","#599759","#4b8e4b","#428742","#4d854f","#3d8d49","#74784d","#dcdcdc","#ffffff"]};
 //var Blue_Terrain_Classic = {"min":0,"max":18,"palette":["#00008B" ,"#222B9D" ,"#4556AF" ,"#6781C1" ,"#8AACD3" ,"#ADD8E6" ,"#00A600" ,"#24B300" ,"#4CBF00" ,"#7ACC00" ,"#ADD900" ,"#E6E600" ,"#E8C727" ,"#EAB64E" ,"#ECB176" ,"#EEB99F" ,"#F0CFC8" ,"#F2F2F2"]};
-
-//Update visparams
-//Downlaod tool
-//var blend = require('users/jja/public:blend.js');
 
 Map.setCenter(92, -17,3);
 
